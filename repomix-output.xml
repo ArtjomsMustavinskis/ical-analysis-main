@@ -1,0 +1,1074 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+.github/
+  workflows/
+    python-app.yml
+.gitignore
+calendar_analyzer.py
+cli.py
+README.md
+requirements.txt
+test_calendar_analyzer.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".github/workflows/python-app.yml">
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python application
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        pytest
+</file>
+
+<file path=".gitignore">
+# Calendar files
+*.ics
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Distribution
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+.windsurfrules
+</file>
+
+<file path="requirements.txt">
+icalendar>=5.0.0
+python-dateutil>=2.8.2
+pytz>=2023.3
+pytest>=7.4.0
+termplotlib>=0.3.5
+</file>
+
+<file path="cli.py">
+#!/usr/bin/env python3
+
+import argparse
+from datetime import datetime, timedelta
+import re
+from dateutil import parser, tz
+from calendar_analyzer import CalendarAnalyzer
+import termplotlib as tpl
+
+def valid_date(s):
+    """Convert string to datetime, used for argument parsing."""
+    try:
+        return parser.parse(s).replace(tzinfo=tz.gettz('America/Los_Angeles'))
+    except ValueError:
+        msg = f"Not a valid date: '{s}'"
+        raise argparse.ArgumentTypeError(msg)
+
+def plot_day_stats(distribution):
+    """Create ASCII bar charts showing event distribution by day of week."""
+    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    patterns = list(distribution.keys())
+
+    print("\nEvent Distribution by Day:")
+    for pattern in patterns:
+        counts = [distribution[pattern][day]['count'] for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']]
+        hours = [round(distribution[pattern][day]['total_hours'], 1) for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']]
+
+        print(f"\n{pattern} - Event Counts:")
+        fig = tpl.figure()
+        fig.barh(counts, days)
+        fig.show()
+
+        print(f"\n{pattern} - Hours Spent:")
+        fig = tpl.figure()
+        fig.barh(hours, days)
+        fig.show()
+
+def plot_weekly_stats(weekly_stats):
+    """Create ASCII bar charts showing weekly hours by category."""
+    print("\nWeekly Hours by Category:")
+    for pattern, weeks in weekly_stats.items():
+        # Sort weeks by date
+        weeks_sorted = sorted(weeks.items())
+        week_labels = [week for week, _ in weeks_sorted]
+        hours = [round(week_data['total_hours'], 1) for _, week_data in weeks_sorted]
+
+        print(f"\n{pattern}:")
+        fig = tpl.figure()
+        fig.barh(hours, week_labels)
+        fig.show()
+
+def plot_monthly_stats(monthly_stats):
+    """Create ASCII bar charts showing monthly hours by category."""
+    print("\nMonthly Hours by Category:")
+    for pattern, months in monthly_stats.items():
+        # Sort months by date
+        months_sorted = sorted(months.items())
+        month_labels = [month for month, _ in months_sorted]
+        hours = [round(month_data['total_hours'], 1) for _, month_data in months_sorted]
+
+        print(f"\n{pattern}:")
+        fig = tpl.figure()
+        fig.barh(hours, month_labels)
+        fig.show()
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Analyze calendar events within a timeframe with optional regex filtering.'
+    )
+
+    # Required calendar file argument
+    parser.add_argument(
+        'calendar_file',
+        help='Name of the .ics file in the /calendars directory'
+    )
+
+    # Date range arguments
+    parser.add_argument(
+        '--start',
+        type=valid_date,
+        help='Start date (e.g., "2024-01-01" or "30 days ago")'
+    )
+    parser.add_argument(
+        '--end',
+        type=valid_date,
+        help='End date (e.g., "2024-12-31" or "today")'
+    )
+
+    # Event filtering
+    parser.add_argument(
+        '--pattern',
+        help='Regex pattern to filter events (searches both summary and description)'
+    )
+
+    # Analysis options
+    parser.add_argument(
+        '--show-day-stats',
+        action='store_true',
+        help='Show event distribution by day of week'
+    )
+    parser.add_argument(
+        '--show-monthly-stats',
+        action='store_true',
+        help='Show monthly statistics including total hours, average hours per day, and event counts'
+    )
+    parser.add_argument(
+        '--show-weekly-stats',
+        action='store_true',
+        help='Show weekly statistics including total and average hours per week'
+    )
+    parser.add_argument(
+        '--show-graphs',
+        action='store_true',
+        help='Show visualizations of the analyses'
+    )
+
+    args = parser.parse_args()
+
+    # Set default dates if not provided - no time limit by default
+    now = datetime.now(tz.gettz('America/Los_Angeles'))
+    if args.end is None:
+        args.end = now
+    if args.start is None:
+        args.start = datetime(1970, 1, 1, tzinfo=tz.gettz('America/Los_Angeles'))
+
+    # Initialize analyzer with the specified calendar file
+    analyzer = CalendarAnalyzer(args.calendar_file)
+
+    # Create patterns dict based on input
+    if args.pattern:
+        pattern = re.compile(args.pattern, re.IGNORECASE)
+        patterns = {'matched_events': pattern}
+    else:
+        # Default patterns if no specific pattern is provided
+        patterns = {
+            'meetings': re.compile(r'meeting|sync|standup', re.IGNORECASE),
+            'classes': re.compile(r'CSE \d+', re.IGNORECASE),
+            'workout': re.compile(r'workout', re.IGNORECASE),
+            'social': re.compile(r'lunch|coffee', re.IGNORECASE),
+        }
+
+    try:
+        # Analyze events
+        results = analyzer.analyze_events(args.start, args.end, patterns)
+
+        # Print basic results
+        print(f"\nAnalyzing events from {args.start.strftime('%Y-%m-%d')} to {args.end.strftime('%Y-%m-%d')}")
+
+        # Only show individual events if no analysis flags are set
+        show_analyses = args.show_day_stats or args.show_monthly_stats or args.show_weekly_stats
+
+        if not show_analyses:
+            for pattern_name, events in results.items():
+                print(f"\n{pattern_name.title()} ({len(events)} events):")
+                for dt, summary, duration in events:
+                    print(f"{dt.strftime('%Y-%m-%d %H:%M')} - {summary} ({duration.total_seconds()/3600:.1f}h)")
+
+        # Always show time spent
+        time_spent = analyzer.get_time_spent(results)
+        print("\nTime Spent on Events:")
+        for pattern_name, duration in time_spent.items():
+            hours = duration.total_seconds() / 3600
+            print(f"{pattern_name.title()}: {hours:.1f} hours")
+
+        # Show additional analyses if requested
+        if args.show_day_stats:
+            distribution = analyzer.get_day_stats(results)
+            print("\nEvent Distribution by Day:")
+            for pattern_name, dist in distribution.items():
+                print(f"\n{pattern_name.title()}:")
+                for day, stats in dist.items():
+                    count = stats['count']
+                    total = stats['total_hours']
+                    avg = stats['avg_hours']
+                    print(f"  {day:9} - {count:2d} events, {total:5.1f} hours total ({avg:4.1f}h avg/event)")
+
+        if args.show_monthly_stats:
+            monthly_stats = analyzer.get_monthly_stats(results)
+            print("\nMonthly Statistics:")
+            for pattern_name, stats in monthly_stats.items():
+                print(f"\n{pattern_name.title()}:")
+                for month, month_stats in sorted(stats.items()):
+                    print(f"  Month of {month}: {month_stats['total_hours']:.1f} total hours "
+                          f"({month_stats['avg_hours']:.1f}h avg/day), {month_stats['event_count']} events")
+
+        if args.show_weekly_stats:
+            weekly_stats = analyzer.get_weekly_stats(results)
+            print("\nWeekly Statistics:")
+            for pattern_name, stats in weekly_stats.items():
+                print(f"\n{pattern_name.title()}:")
+                for week, week_stats in sorted(stats.items()):
+                    print(f"  Week of {week}: {week_stats['total_hours']:.1f} total hours ({week_stats['avg_hours']:.1f}h avg/day)")
+
+        if args.show_graphs:
+            if args.show_day_stats:
+                distribution = analyzer.get_day_stats(results)
+                plot_day_stats(distribution)
+
+            if args.show_monthly_stats:
+                monthly_stats = analyzer.get_monthly_stats(results)
+                plot_monthly_stats(monthly_stats)
+
+            if args.show_weekly_stats:
+                weekly_stats = analyzer.get_weekly_stats(results)
+                plot_weekly_stats(weekly_stats)
+
+    except FileNotFoundError:
+        print(f"Error: Calendar file '{args.calendar_file}' not found in /calendars directory")
+        return 1
+    except Exception as e:
+        print(f"Error analyzing calendar: {str(e)}")
+        return 1
+
+    return 0
+
+if __name__ == '__main__':
+    exit(main())
+</file>
+
+<file path="test_calendar_analyzer.py">
+import pytest
+from datetime import datetime, timedelta
+import re
+from calendar_analyzer import CalendarAnalyzer
+from dateutil import tz
+import random
+from icalendar import Calendar, Event
+import os
+import tempfile
+
+def create_sample_calendar(num_events=15):
+    """Create a sample calendar with random events."""
+    cal = Calendar()
+    cal.add('prodid', '-//Sample Calendar//')
+    cal.add('version', '2.0')
+
+    event_types = [
+        "CSE 6040 - Lecture",
+        "CSE 6040 - Office Hours",
+        "Email / Slack catchup",
+        "Lunch with team",
+        "Workout: Run",
+        "Workout: Gym",
+        "Team Meeting",
+        "1:1 Meeting",
+        "Project Sync",
+        "Coffee Break"
+    ]
+
+    # Create a range of dates between Jan 2024 and Dec 2024
+    start_date = datetime(2024, 1, 1, tzinfo=tz.gettz('America/Los_Angeles'))
+    end_date = datetime(2024, 12, 31, tzinfo=tz.gettz('America/Los_Angeles'))
+
+    events = []
+    for _ in range(num_events):
+        event = Event()
+
+        # Random date and time
+        random_days = random.randint(0, (end_date - start_date).days)
+        random_hours = random.randint(9, 17)  # Business hours
+        event_date = start_date + timedelta(days=random_days)
+        event_datetime = event_date.replace(hour=random_hours, minute=random.randint(0, 59))
+
+        event.add('summary', random.choice(event_types))
+        event.add('dtstart', event_datetime)
+        event.add('dtend', event_datetime + timedelta(hours=1))
+        event.add('dtstamp', event_datetime)
+        event.add('uid', f'{random.randint(1000000, 9999999)}@example.com')
+
+        # Add description to some events
+        if random.random() < 0.5:
+            event.add('description', f"Details for {event['summary']}")
+
+        events.append(event)
+        cal.add_component(event)
+
+    return cal
+
+@pytest.fixture
+def sample_calendar_file(tmp_path):
+    """Create a temporary calendar file."""
+    cal = create_sample_calendar()
+    cal_path = tmp_path / 'sample.ics'
+    with open(cal_path, 'wb') as f:
+        f.write(cal.to_ical())
+    return cal_path
+
+@pytest.fixture
+def analyzer(sample_calendar_file):
+    return CalendarAnalyzer(str(sample_calendar_file))
+
+@pytest.fixture
+def sample_patterns():
+    return {
+        'classes': re.compile(r'CSE \d+', re.IGNORECASE),
+        'meetings': re.compile(r'meeting|sync', re.IGNORECASE),
+        'workout': re.compile(r'workout', re.IGNORECASE),
+        'social': re.compile(r'lunch|coffee', re.IGNORECASE),
+        'communication': re.compile(r'email|slack', re.IGNORECASE)
+    }
+
+@pytest.fixture
+def timeframe():
+    tz_info = tz.gettz('America/Los_Angeles')
+    return (
+        datetime(2024, 1, 1, 0, 0, 0, tzinfo=tz_info),
+        datetime(2024, 12, 31, 23, 59, 59, tzinfo=tz_info)
+    )
+
+def test_analyzer_initialization(analyzer, sample_calendar_file):
+    assert os.path.exists(analyzer.calendar_file)
+    assert analyzer.local_tz is not None
+
+def test_calendar_loading(analyzer):
+    cal = analyzer.calendar
+    assert isinstance(cal, Calendar)
+    assert len(list(cal.walk('VEVENT'))) > 0
+
+def test_event_analysis(analyzer, sample_patterns, timeframe):
+    start_time, end_time = timeframe
+    results = analyzer.analyze_events(start_time, end_time, sample_patterns)
+
+    # Verify we have results for each pattern
+    assert all(pattern_name in results for pattern_name in sample_patterns)
+
+    # Verify all events are within the timeframe
+    for events in results.values():
+        for dt, summary, duration in events:
+            assert start_time <= dt <= end_time
+            assert isinstance(duration, timedelta)
+
+    # Print summary of found events
+    print("\nFound events:")
+    for pattern_name, events in results.items():
+        print(f"\n{pattern_name.title()} ({len(events)} events):")
+        for dt, summary, duration in events:
+            print(f"{dt.strftime('%Y-%m-%d %H:%M')} - {summary} ({duration.total_seconds()/3600:.1f}h)")
+
+def test_day_stats(analyzer, sample_patterns, timeframe):
+    start_time, end_time = timeframe
+    results = analyzer.analyze_events(start_time, end_time, sample_patterns)
+    distribution = analyzer.get_day_stats(results)
+
+    # Verify we have distribution for each pattern
+    assert all(pattern_name in distribution for pattern_name in sample_patterns)
+
+    # Verify we have all days of the week with required stats
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    required_stats = ['count', 'total_hours', 'avg_hours']
+    assert all(
+        all(
+            all(stat in dist[day] for stat in required_stats)
+            for day in days
+        )
+        for dist in distribution.values()
+    )
+
+    print("\nEvent distribution by day:")
+    for pattern, dist in distribution.items():
+        print(f"\n{pattern.title()}:")
+        for day, stats in dist.items():
+            count = stats['count']
+            total = stats['total_hours']
+            avg = stats['avg_hours']
+            print(f"  {day:9} - {count:2d} events, {total:5.1f} hours total ({avg:4.1f}h avg/event)")
+
+def test_time_spent(analyzer, sample_patterns, timeframe):
+    start_time, end_time = timeframe
+    results = analyzer.analyze_events(start_time, end_time, sample_patterns)
+    time_spent = analyzer.get_time_spent(results)
+
+    # Verify we have time spent for each pattern
+    assert all(pattern_name in time_spent for pattern_name in sample_patterns)
+
+    print("\nTime spent on each event type:")
+    for pattern, duration in time_spent.items():
+        hours = duration.total_seconds() / 3600
+        print(f"{pattern.title()}: {hours:.1f} hours")
+
+def test_pattern_matching(analyzer, timeframe):
+    start_time, end_time = timeframe
+    pattern = re.compile(r'CSE 6040', re.IGNORECASE)
+    results = analyzer.analyze_events(start_time, end_time, {'cse_events': pattern})
+
+    # Verify all matched events contain the pattern
+    for events in results.values():
+        for _, summary, _ in events:
+            assert pattern.search(summary) is not None
+
+    print("\nCSE 6040 events:")
+    for events in results.values():
+        for dt, summary, duration in events:
+            print(f"{dt.strftime('%Y-%m-%d %H:%M')} - {summary} ({duration.total_seconds()/3600:.1f}h)")
+
+def test_all_day_events(analyzer, timeframe):
+    """Test that all-day events are handled correctly with zero duration."""
+    # Create a test calendar with an all-day event
+    cal = Calendar()
+    cal.add('prodid', '-//Test Calendar//')
+    cal.add('version', '2.0')
+
+    # Add an all-day event
+    event = Event()
+    event.add('summary', 'All Day Meeting')
+    event.add('dtstart', datetime(2024, 1, 15).date())  # Note: using .date() makes it all-day
+    event.add('dtend', datetime(2024, 1, 16).date())
+    cal.add_component(event)
+
+    # Write to a temporary file
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.ics', delete=False) as f:
+        f.write(cal.to_ical())
+        temp_file = f.name
+
+    # Create analyzer with our test calendar
+    test_analyzer = CalendarAnalyzer(temp_file)
+
+    # Define a pattern that will match our event
+    patterns = {'meetings': re.compile(r'meeting', re.IGNORECASE)}
+
+    # Analyze events
+    start_time, end_time = timeframe
+    results = test_analyzer.analyze_events(start_time, end_time, patterns)
+
+    # Get time spent
+    time_spent = test_analyzer.get_time_spent(results)
+
+    # Verify the all-day event has zero duration
+    assert time_spent['meetings'] == timedelta(0), "All-day event should have zero duration"
+
+    # Clean up
+    os.unlink(temp_file)
+
+def test_weekly_stats(analyzer, sample_patterns, timeframe):
+    start_time, end_time = timeframe
+    results = analyzer.analyze_events(start_time, end_time, sample_patterns)
+    weekly_stats = analyzer.get_weekly_stats(results)
+
+    # Verify we have weekly stats for each pattern
+    assert all(pattern_name in weekly_stats for pattern_name in sample_patterns)
+
+    # Verify each week has required stats
+    required_stats = ['total_hours', 'avg_hours']
+    assert all(
+        all(stat in week_stats for stat in required_stats)
+        for pattern_stats in weekly_stats.values()
+        for week_stats in pattern_stats.values()
+    )
+
+    print("\nWeekly statistics:")
+    for pattern, stats in weekly_stats.items():
+        print(f"\n{pattern.title()}:")
+        for week, week_stats in sorted(stats.items()):
+            print(f"  Week of {week}: {week_stats['total_hours']:.1f} total hours ({week_stats['avg_hours']:.1f}h avg/day)")
+
+def test_monthly_stats(analyzer, sample_patterns, timeframe):
+    start_time, end_time = timeframe
+    results = analyzer.analyze_events(start_time, end_time, sample_patterns)
+    monthly_stats = analyzer.get_monthly_stats(results)
+
+    # Verify we have monthly stats for each pattern
+    assert all(pattern_name in monthly_stats for pattern_name in sample_patterns)
+
+    # Verify each month has required stats
+    required_stats = ['total_hours', 'avg_hours', 'event_count']
+    assert all(
+        all(stat in month_stats for stat in required_stats)
+        for pattern_stats in monthly_stats.values()
+        for month_stats in pattern_stats.values()
+    )
+
+    # Verify month keys are in correct format (YYYY-MM)
+    assert all(
+        all(re.match(r'^\d{4}-\d{2}$', month_key) for month_key in pattern_stats.keys())
+        for pattern_stats in monthly_stats.values()
+    )
+
+    print("\nMonthly statistics:")
+    for pattern, stats in monthly_stats.items():
+        print(f"\n{pattern.title()}:")
+        for month, month_stats in sorted(stats.items()):
+            print(f"  Month of {month}: {month_stats['total_hours']:.1f} total hours "
+                  f"({month_stats['avg_hours']:.1f}h avg/day), {month_stats['event_count']} events")
+</file>
+
+<file path="README.md">
+# iCalendar Event Analyzer
+
+A Python tool for analyzing iCalendar (.ics) files and aggregating events based on regex patterns within a specified timeframe. Features powerful command-line interface with data visualization capabilities.
+
+## Features
+
+- Read and parse iCalendar (.ics) files from a specified directory
+- Match events using customizable regex patterns
+- Filter events within a specific time range
+- Support for timezone-aware datetime handling
+- Aggregated results by pattern categories
+- Visual analysis with ASCII charts showing:
+  - Event distribution by day of week
+  - Total time spent by category
+  - Weekly hours over time
+  - Monthly statistics and trends
+- Command-line interface for easy analysis
+- Comprehensive test suite with pytest
+
+## Installation
+
+1. Clone this repository
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Dependencies
+
+- icalendar >= 5.0.0: iCalendar file parsing
+- python-dateutil >= 2.8.2: Advanced date handling
+- pytz >= 2023.3: Timezone support
+- pytest >= 7.4.0: Testing framework
+- termplotlib >= 0.3.5: Terminal-based plotting
+
+## Usage
+
+### As a Python Library
+
+```python
+from calendar_analyzer import CalendarAnalyzer
+from datetime import datetime
+from dateutil import tz
+import re
+
+# Initialize analyzer
+analyzer = CalendarAnalyzer(calendar_dir="/path/to/calendar/files")
+
+# Define timeframe (optional - defaults to all events)
+start_time = datetime(2024, 12, 1, tzinfo=tz.gettz('America/Los_Angeles'))
+end_time = datetime(2024, 12, 31, tzinfo=tz.gettz('America/Los_Angeles'))
+
+# Define patterns
+patterns = {
+    'meetings': re.compile(r'meeting|sync|standup', re.IGNORECASE),
+    'social': re.compile(r'lunch|dinner|party', re.IGNORECASE),
+}
+
+# Analyze events
+results = analyzer.analyze_events(start_time, end_time, patterns)
+
+# Get various statistics
+time_spent = analyzer.get_time_spent(results)  # Always included
+day_stats = analyzer.get_day_stats(results)
+monthly_stats = analyzer.get_monthly_stats(results)
+weekly_stats = analyzer.get_weekly_stats(results)
+
+# Process results
+for pattern_name, events in results.items():
+    print(f"\n{pattern_name.title()} ({len(events)} events):")
+    for dt, summary, duration in events:
+        print(f"{dt.strftime('%Y-%m-%d %H:%M')} - {summary} ({duration.total_seconds()/3600:.1f}h)")
+```
+
+### Command Line Interface
+
+The tool provides a powerful CLI for analyzing calendar events:
+
+```bash
+python cli.py calendars/calendar.ics [--start "2024-01-01"] [--end "2024-12-31"] \
+    [--pattern "meeting|sync|standup"] \
+    [--show-day-stats] [--show-monthly-stats] \
+    [--show-weekly-stats] [--show-graphs]
+```
+
+#### CLI Options:
+- `calendar_file`: Name of the .ics file to analyze
+- `--start`: Analysis start date (e.g., "2024-01-01" or "30 days ago"). Optional - defaults to all events
+- `--end`: Analysis end date (e.g., "2024-12-31" or "today"). Optional - defaults to current time
+- `--pattern`: Regex pattern to filter events (searches both summary and description)
+- `--show-day-stats`: Show event distribution by day of week
+- `--show-monthly-stats`: Show monthly statistics including total hours, average hours per day, and event counts
+- `--show-weekly-stats`: Show weekly statistics including total and average hours per week
+- `--show-graphs`: Show visualizations of the analyses
+
+Note: Time spent analysis is always included in the output.
+
+The tool provides visual analysis through ASCII charts showing:
+- Event counts by day of week
+- Hours spent by day of week
+- Total hours by category
+- Weekly hours over time
+- Monthly trends and patterns
+
+## Testing
+
+The project includes a comprehensive test suite using pytest. Tests cover:
+
+- Calendar file loading and parsing
+- Event analysis and pattern matching
+- Day of week distribution statistics
+- Time spent calculations
+- Weekly statistics analysis
+- Monthly statistics analysis
+- All-day event handling
+
+Run tests using:
+```bash
+pytest
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Write tests for new features
+4. Ensure all tests pass
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+</file>
+
+<file path="calendar_analyzer.py">
+import os
+from datetime import datetime, timezone, timedelta
+import re
+from icalendar import Calendar
+from dateutil import tz
+from typing import Dict, List, Pattern, Tuple
+
+class CalendarAnalyzer:
+    def __init__(self, calendar_file: str):
+        """Initialize analyzer with path to calendar file."""
+        self.calendar_file = os.path.join(os.getcwd(), calendar_file)
+        self.local_tz = tz.gettz('America/Los_Angeles')
+        self._calendar = None
+
+    @property
+    def calendar(self) -> Calendar:
+        """Lazy load the calendar file."""
+        if self._calendar is None:
+            self._calendar = self.load_calendar()
+        return self._calendar
+
+    def load_calendar(self) -> Calendar:
+        """Load an iCalendar file and return a Calendar object."""
+        with open(self.calendar_file, 'rb') as f:
+            return Calendar.from_ical(f.read())
+
+    def analyze_events(self,
+                      start_time: datetime,
+                      end_time: datetime,
+                      patterns: Dict[str, Pattern]) -> Dict[str, List[Tuple[datetime, str, timedelta]]]:
+        """
+        Analyze calendar events between start_time and end_time, matching events against regex patterns.
+
+        Args:
+            start_time: Start of the analysis period
+            end_time: End of the analysis period
+            patterns: Dictionary of pattern name to compiled regex pattern
+
+        Returns:
+            Dictionary mapping pattern names to lists of (datetime, event_summary, duration) tuples
+        """
+        # Initialize events_data with empty lists for all patterns
+        events_data = {pattern_name: [] for pattern_name in patterns}
+
+        for component in self.calendar.walk():
+            if component.name == "VEVENT":
+                # Skip events without start time
+                dtstart = component.get('dtstart')
+                if not dtstart:
+                    continue
+                event_start = dtstart.dt
+
+                # Handle events without end time by using start time + 1 hour
+                dtend = component.get('dtend')
+                if not dtend:
+                    event_end = event_start + timedelta(hours=1)
+                else:
+                    event_end = dtend.dt
+
+                summary = str(component.get('summary', ''))
+
+                # Check if this is an all-day event (date instead of datetime)
+                is_all_day = not isinstance(component.get('dtstart').dt, datetime)
+
+                # Convert to datetime if date
+                if isinstance(event_start, datetime):
+                    event_start = event_start.replace(tzinfo=timezone.utc).astimezone(self.local_tz)
+                else:
+                    event_start = datetime.combine(event_start, datetime.min.time(), tzinfo=self.local_tz)
+
+                if isinstance(event_end, datetime):
+                    event_end = event_end.replace(tzinfo=timezone.utc).astimezone(self.local_tz)
+                else:
+                    event_end = datetime.combine(event_end, datetime.min.time(), tzinfo=self.local_tz)
+
+                # Skip if event is outside analysis period
+                if event_end < start_time or event_start > end_time:
+                    continue
+
+                # Set duration to zero for all-day events, otherwise calculate normally
+                duration = timedelta(0) if is_all_day else (event_end - event_start)
+
+                # Match against patterns
+                for pattern_name, regex in patterns.items():
+                    match = regex.search(summary)
+                    if match:  # Only process if we found a match
+                        events_data[pattern_name].append((event_start, summary, duration))
+
+        return events_data
+
+    def get_day_stats(self, events_data: Dict[str, List[Tuple[datetime, str, timedelta]]]) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """
+        Get distribution of events by day of week for each pattern.
+
+        Returns:
+            Dictionary mapping pattern names to day distribution dictionaries.
+            Each day contains:
+                - count: number of events
+                - total_hours: total time spent
+                - avg_hours: average time per event
+        """
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        distribution = {
+            pattern: {
+                day: {'count': 0, 'total_hours': 0.0, 'avg_hours': 0.0}
+                for day in days
+            }
+            for pattern in events_data
+        }
+
+        for pattern, events in events_data.items():
+            for event_start, _, duration in events:
+                day = days[event_start.weekday()]
+                hours = duration.total_seconds() / 3600
+
+                distribution[pattern][day]['count'] += 1
+                distribution[pattern][day]['total_hours'] += hours
+
+        # Calculate averages
+        for pattern in distribution:
+            for day in days:
+                count = distribution[pattern][day]['count']
+                if count > 0:
+                    distribution[pattern][day]['avg_hours'] = (
+                        distribution[pattern][day]['total_hours'] / count
+                    )
+
+        return distribution
+
+    def get_time_spent(self, events_data: Dict[str, List[Tuple[datetime, str, timedelta]]]) -> Dict[str, timedelta]:
+        """
+        Calculate total time spent on each event type.
+
+        Returns:
+            Dictionary mapping pattern names to total duration
+        """
+        time_spent = {}
+
+        for pattern, events in events_data.items():
+            total_duration = sum((duration for _, _, duration in events), timedelta())
+            time_spent[pattern] = total_duration
+
+        return time_spent
+
+    def get_weekly_stats(self, events_data: Dict[str, List[Tuple[datetime, str, timedelta]]]) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """
+        Calculate weekly statistics for each pattern.
+
+        Returns:
+            Dictionary mapping pattern names to week statistics.
+            Each week contains:
+                - total_hours: total time spent in the week
+                - avg_hours: average hours per day in that week
+        """
+        weekly_stats = {}
+
+        for pattern, events in events_data.items():
+            weekly_stats[pattern] = {}
+
+            for event_start, _, duration in events:
+                # Get the Monday of the week for this event
+                monday = event_start - timedelta(days=event_start.weekday())
+                week_key = monday.strftime('%Y-%m-%d')
+
+                if week_key not in weekly_stats[pattern]:
+                    weekly_stats[pattern][week_key] = {
+                        'total_hours': 0.0,
+                        'avg_hours': 0.0
+                    }
+
+                hours = duration.total_seconds() / 3600
+                weekly_stats[pattern][week_key]['total_hours'] += hours
+
+            # Calculate average hours per day for each week
+            for week in weekly_stats[pattern].values():
+                week['avg_hours'] = week['total_hours'] / 7
+
+        return weekly_stats
+
+    def get_monthly_stats(self, events_data: Dict[str, List[Tuple[datetime, str, timedelta]]]) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """
+        Calculate monthly statistics for each pattern.
+
+        Returns:
+            Dictionary mapping pattern names to month statistics.
+            Each month contains:
+                - total_hours: total time spent in the month
+                - avg_hours: average hours per day in that month
+                - event_count: number of events in that month
+        """
+        monthly_stats = {}
+
+        for pattern, events in events_data.items():
+            monthly_stats[pattern] = {}
+
+            for event_start, _, duration in events:
+                # Get the first day of the month for this event
+                month_key = event_start.strftime('%Y-%m')
+
+                if month_key not in monthly_stats[pattern]:
+                    monthly_stats[pattern][month_key] = {
+                        'total_hours': 0.0,
+                        'avg_hours': 0.0,
+                        'event_count': 0
+                    }
+
+                hours = duration.total_seconds() / 3600
+                monthly_stats[pattern][month_key]['total_hours'] += hours
+                monthly_stats[pattern][month_key]['event_count'] += 1
+
+            # Calculate average hours per day for each month
+            for month_key, stats in monthly_stats[pattern].items():
+                # Get number of days in this month
+                year, month = map(int, month_key.split('-'))
+                if month == 12:
+                    next_month = datetime(year + 1, 1, 1)
+                else:
+                    next_month = datetime(year, month + 1, 1)
+                days_in_month = (next_month - datetime(year, month, 1)).days
+
+                stats['avg_hours'] = stats['total_hours'] / days_in_month
+
+        return monthly_stats
+
+if __name__ == '__main__':
+    # Example usage with analytics
+    analyzer = CalendarAnalyzer('calendar.ics')
+
+    # Define analysis timeframe
+    start_time = datetime(2024, 12, 11, 19, 22, 55,
+                         tzinfo=tz.gettz('America/Los_Angeles'))
+    end_time = datetime(2024, 12, 31, 23, 59, 59,
+                       tzinfo=tz.gettz('America/Los_Angeles'))
+
+    # Define patterns to match
+    patterns = {
+        'meetings': re.compile(r'meeting|sync|standup', re.IGNORECASE),
+        'classes': re.compile(r'CSE \d+', re.IGNORECASE),
+        'workout': re.compile(r'workout', re.IGNORECASE),
+        'social': re.compile(r'lunch|coffee', re.IGNORECASE),
+    }
+
+    # Get event matches
+    results = analyzer.analyze_events(start_time, end_time, patterns)
+
+    # Get analytics
+    day_dist = analyzer.get_day_stats(results)
+    time_spent = analyzer.get_time_spent(results)
+    weekly_stats = analyzer.get_weekly_stats(results)
+    monthly_stats = analyzer.get_monthly_stats(results)
+
+    # Print analytics
+    print("\nEvent Distribution by Day:")
+    for pattern, dist in day_dist.items():
+        print(f"\n{pattern}:")
+        for day, stats in dist.items():
+            print(f"  {day}: {stats['count']} events, {stats['total_hours']:.1f} hours, {stats['avg_hours']:.1f} hours/event")
+
+    print("\nTime Spent on Each Event Type:")
+    for pattern, duration in time_spent.items():
+        hours = duration.total_seconds() / 3600
+        print(f"{pattern}: {hours:.1f} hours")
+
+    print("\nWeekly Statistics:")
+    for pattern, stats in weekly_stats.items():
+        print(f"\n{pattern}:")
+        for week, week_stats in stats.items():
+            print(f"  Week of {week}: {week_stats['total_hours']:.1f} hours, {week_stats['avg_hours']:.1f} hours/day")
+
+    print("\nMonthly Statistics:")
+    for pattern, stats in monthly_stats.items():
+        print(f"\n{pattern}:")
+        for month, month_stats in stats.items():
+            print(f"  Month of {month}: {month_stats['total_hours']:.1f} hours, {month_stats['avg_hours']:.1f} hours/day, {month_stats['event_count']} events")
+</file>
+
+</files>
